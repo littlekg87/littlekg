@@ -1,0 +1,111 @@
+import pandas as pd
+import re
+
+# 한문 숫자와 대응하는 아라비아 숫자 매핑
+digits = {
+    '零': 0, '〇': 0,
+    '一': 1, '二': 2, '三': 3, '四': 4,
+    '五': 5, '六': 6, '七': 7, '八': 8, '九': 9
+}
+
+# 작은 단위 매핑
+units = {
+    '十': 10,
+    '百': 100,
+    '千': 1000
+}
+
+# 큰 단위 매핑
+large_units = {
+    '兆': 1000000000000,
+    '億': 100000000,
+    '萬': 10000
+}
+
+def hanja_to_number(hanja_str):
+    """
+    한문 숫자를 받아 아라비아 숫자로 변환합니다.
+
+    Parameters:
+        hanja_str (str): 한문 숫자 문자열
+
+    Returns:
+        int: 변환된 아라비아 숫자
+    """
+    # 입력값이 NaN인 경우 0 반환
+    if pd.isna(hanja_str):
+        return 0
+
+    # 문자열로 변환
+    hanja_str = str(hanja_str)
+
+    # 유효한 문자만 남기기
+    valid_chars = '零〇一二三四五六七八九十百千萬億兆單'
+    hanja_str = ''.join(filter(lambda x: x in valid_chars, hanja_str))
+    # '單' 제거
+    hanja_str = hanja_str.replace('單', '')
+    # 특수기호 제거
+    hanja_str = re.sub(r'[^\w一二三四五六七八九零〇十百千萬億兆]', '', hanja_str)
+    total = 0
+
+    # 큰 단위를 기준으로 분할
+    parts = re.split('([兆億萬])', hanja_str)
+    parts.append('')  # 마지막 부분 처리를 위해 추가
+
+    i = 0
+    while i < len(parts):
+        section = parts[i]
+        if i + 1 < len(parts) and parts[i + 1] in large_units:
+            unit = large_units[parts[i + 1]]
+            section_value = parse_section(section)
+            total += section_value * unit
+            i += 2
+        else:
+            # 마지막 부분 처리
+            section_value = parse_section(section)
+            total += section_value
+            i += 1
+    return total
+
+def parse_section(section):
+    """
+    작은 단위('十', '百', '千')가 포함된 숫자 부분을 처리합니다.
+
+    Parameters:
+        section (str): 변환할 문자열 부분
+
+    Returns:
+        int: 해당 부분의 아라비아 숫자 값
+    """
+    result = 0
+    num = 0
+    for char in section:
+        if char in digits:
+            num = digits[char]
+        elif char in units:
+            unit = units[char]
+            if num == 0:
+                num = 1
+            result += num * unit
+            num = 0
+        else:
+            # 무시할 문자 처리
+            pass
+    result += num
+    return result
+
+# CSV 파일 경로
+input_file_path = r'C:\Users\littl\PycharmProjects\Sejong Records\original data\ho data.csv'
+
+# CSV 파일 읽기
+df = pd.read_csv(input_file_path, encoding='utf-8')
+
+# '戶 한문' 열의 한문 숫자를 아라비아 숫자로 변환하여 새로운 열에 저장
+df['戶 아라비아'] = df['戶 한문'].apply(hanja_to_number)
+
+# 결과를 새로운 CSV 파일로 저장
+output_file_path = r'C:\Users\littl\PycharmProjects\Sejong Records\original data\ho_data_converted.csv'
+df.to_csv(output_file_path, index=False, encoding='utf-8-sig')
+
+print("한문 숫자 변환이 완료되었습니다. 결과가 다음 경로에 저장되었습니다:")
+print(output_file_path)

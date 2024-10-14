@@ -1,0 +1,102 @@
+import xml.etree.ElementTree as ET
+import pandas as pd
+
+# 한문 숫자 변환 함수
+def chinese_to_number(chinese):
+    chinese_numbers = {
+        '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
+        '六': 6, '七': 7, '八': 8, '九': 9, '零': 0,
+        '十': 10, '百': 100, '千': 1000, '萬': 10000
+    }
+
+    unit = 1
+    number = 0
+    num_stack = []
+
+    # '單' 글자 무시
+    chinese = chinese.replace('單', '')
+
+    for char in reversed(chinese):
+        if char in chinese_numbers:
+            val = chinese_numbers[char]
+            if val >= 10:
+                if not num_stack:
+                    num_stack.append(1)
+                unit = val
+            else:
+                num_stack.append(val * unit)
+        else:
+            number += sum(num_stack)
+            num_stack = []
+            unit = 1
+
+    number += sum(num_stack)
+    return number
+
+# XML 파일 경로
+file_path = 'C:\\Users\\littl\\PycharmProjects\\Sejong-Geographical Records\\2nd_wda_400.xml'
+
+# XML 파일 로드
+tree = ET.parse(file_path)
+root = tree.getroot()
+
+def get_all_text(element):
+    """주어진 요소와 모든 하위 요소의 텍스트를 하나로 결합하여 반환합니다."""
+    text = element.text or ""
+    for subelement in element:
+        text += get_all_text(subelement)
+        if subelement.tail:
+            text += subelement.tail
+    return text
+
+# 결과를 저장할 리스트
+results = []
+
+def extract_ho_numbers(level, element):
+    """주어진 레벨과 XML 요소에서 '戶' 숫자를 추출하여 결과에 추가"""
+    for level_element in element.findall(f".//level{level}"):
+        level_id = level_element.get('id')
+        if level_id and 'wda_400020' <= level_id <= 'wda_400120':
+            title = level_element.find('.//mainTitle')
+            if title is not None:
+                goel = title.text.strip()
+                # '地理志 /' 부분 제거
+                if '地理志 /' in goel:
+                    goel = goel.replace('地理志 /', '').strip()
+
+                content = level_element.find('.//content')
+                if content is not None:
+                    full_text = get_all_text(content)
+                    print(f"Full text for {goel}: {full_text[:100]}...")  # 디버깅 메시지: 텍스트의 처음 100자만 출력
+
+                    # 전체 텍스트에서 '戶' 뒤의 한문 숫자 모두 추출
+                    start = 0
+                    while start < len(full_text):
+                        # 戶 뒤의 한문 숫자 추출
+                        ho_start = full_text.find('戶', start)
+                        if ho_start == -1:
+                            break
+                        ho_start += 1
+                        ho_end = ho_start
+                        while ho_end < len(full_text) and full_text[ho_end] not in ' 戶口':
+                            ho_end += 1
+                        ho_chinese = full_text[ho_start:ho_end].strip()
+                        ho_arabic = chinese_to_number(ho_chinese)
+                        if ho_arabic > 10:  # 10 초과 항목만 추가
+                            results.append((level, level_id, goel, ho_chinese, ho_arabic))
+                        start = ho_end  # 다음 검색을 위해 위치 업데이트
+
+# 레벨 3, 4, 5에 대해 '戶' 숫자 추출
+extract_ho_numbers(3, root)
+extract_ho_numbers(4, root)
+extract_ho_numbers(5, root)
+
+# 결과 출력
+for level, id, goel, chinese, arabic in results:
+    print(f"레벨: {level}, 아이디: {id}, 고을: {goel}, 戶 한문: {chinese}, 戶 아라비아 숫자: {arabic}")
+
+# 결과를 데이터프레임으로 변환
+df = pd.DataFrame(results, columns=['레벨', '아이디', '고을', '戶 한문', '戶 아라비아 숫자'])
+
+# CSV 파일로 저장
+df.to_csv('C:\\Users\\littl\\PycharmProjects\\Sejong-Geographical Records\\results.csv', index=False, encoding='utf-8-sig')

@@ -1,0 +1,96 @@
+# 한문 숫자 매핑
+digits = {
+    '零': 0, '〇': 0,
+    '一': 1, '二': 2, '三': 3, '四': 4,
+    '五': 5, '六': 6, '七': 7, '八': 8, '九': 9
+}
+
+units = {
+    '十': 10,
+    '百': 100,
+    '千': 1000
+}
+
+large_units = {
+    '兆': 1000000000000,
+    '億': 100000000,
+    '萬': 10000
+}
+
+def hanja_to_number(hanja_str):
+    import re
+    # 유효한 문자만 남기기
+    valid_chars = '零〇一二三四五六七八九十百千萬億兆單'
+    hanja_str = ''.join(filter(lambda x: x in valid_chars, hanja_str))
+    # '單' 제거
+    hanja_str = hanja_str.replace('單', '')
+    # 특수기호 제거
+    hanja_str = re.sub(r'[^\w一二三四五六七八九零〇十百千萬億兆]', '', hanja_str)
+    total = 0
+    section_total = 0
+    number = 0
+
+    # 큰 단위를 기준으로 분할
+    parts = re.split('([兆億萬])', hanja_str)
+    parts.append('')  # 마지막 단위를 처리하기 위해 추가
+
+    i = 0
+    while i < len(parts):
+        section = parts[i]
+        if i+1 < len(parts) and parts[i+1] in large_units:
+            unit = large_units[parts[i+1]]
+            section_value = parse_section(section)
+            total += section_value * unit
+            i += 2
+        else:
+            # 마지막 부분 처리
+            section_value = parse_section(section)
+            total += section_value
+            i += 1
+    return total
+
+def parse_section(section):
+    result = 0
+    num = 0
+    for char in section:
+        if char in digits:
+            num = digits[char]
+        elif char in units:
+            unit = units[char]
+            if num == 0:
+                num = 1
+            result += num * unit
+            num = 0
+        else:
+            # 알 수 없는 문자 또는 무시할 문자 처리 ('單' 등)
+            pass
+    result += num
+    return result
+
+# 테스트할 한문 숫자 목록
+hanja_numbers = [
+    '單十二',                # 12 ('單' 무시)
+    '一百二十三!',            # 123 (특수기호 '!' 무시)
+    '一千二百三十四$',         # 1234 (특수기호 '$' 무시)
+    '單一萬二千三百四十五@',    # 12345 ('單' 무시, 특수기호 '@' 무시)
+    '一億二千三百四十五萬六千七百八十九#',  # 123456789 (특수기호 '#' 무시)
+    '零',                     # 0
+    '十',                     # 10
+    '百',                     # 100
+    '千',                     # 1000
+    '萬',                     # 10000
+    '億',                     # 100000000
+    '一兆二千三百四十五億六千七百八十九萬一千二百三十四',  # 1,234,567,891,234
+    '單',                    # 0 ('單'만 있는 경우)
+    'abc',                   # 0 (유효한 한문 숫자가 아닌 경우)
+    '一二三四五六七八九十',     # 1234567890
+    '十二萬三千四百五十六',      # 123456
+    '九千八百七十六萬五千四百三十二', # 98765432
+    '七億八千九百萬',          # 789000000
+    '五兆六千七百八十九億',      # 5,678,900,000,000
+]
+
+# 각 한문 숫자를 변환하여 출력
+for hanja_num in hanja_numbers:
+    arabic_num = hanja_to_number(hanja_num)
+    print(f"{hanja_num} -> {arabic_num}")
