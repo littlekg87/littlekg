@@ -1,0 +1,62 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.decomposition import LatentDirichletAllocation
+import numpy as np
+import re
+
+# CSV 파일 로드
+data = pd.read_csv('D:/Kunha/PyProjects/Review of Korean History Thesis/Review projects/raw data/한국사연구휘보_20241015135359.csv')
+
+# 논문 제목들을 리스트로 수집
+titles = data['제목'].tolist()
+
+# 불용어 리스트 정의
+stopwords = ['및', '대한', '으로', '에', '의', '를', '과', '과의', '에의', '을', '에서', '하기', '고찰', '시기', '바탕으로', '역할', '중심으로', '연구', '통해', '의미', '성격', '초기', '분석', '배경과', '관한', '대해', '관련', '사이', '동안', '대비', '때문', '위해', '현상', '상황', '특성', '문제', '경우', '필요', '주제', '내용']  # 불용어 리스트 확대
+
+# Count 벡터화
+count_vectorizer = CountVectorizer(stop_words=stopwords, max_features=1000)
+count_matrix = count_vectorizer.fit_transform(titles)
+
+# LDA 토픽 모델링
+num_topics = 25  # 추출할 토픽의 수
+lda = LatentDirichletAllocation(n_components=num_topics, random_state=42)
+lda.fit(count_matrix)
+
+# 각 토픽의 주요 키워드 출력
+terms = count_vectorizer.get_feature_names_out()
+num_keywords = 10  # 각 토픽의 주요 키워드 수
+for i, topic in enumerate(lda.components_):
+    top_keywords = [terms[ind] for ind in topic.argsort()[-num_keywords:][::-1]]
+    print(f"토픽 {i + 1}의 주요 키워드: {', '.join(top_keywords)}")
+
+# 각 제목에 할당된 토픽 비율 출력
+topic_distribution = lda.transform(count_matrix)
+data['주요_토픽'] = topic_distribution.argmax(axis=1)
+print("각 제목에 할당된 주요 토픽:")
+print(data[['제목', '주요_토픽']])
+
+# CSV 파일로 저장
+import os
+
+# 저장 경로 확인 및 디렉터리 생성
+output_dir = 'D:/Kunha/PyProjects/Review of Korean History Thesis/Review projects/output'
+os.makedirs(output_dir, exist_ok=True)
+output_file = os.path.join(output_dir, '한국사연구휘보_토픽모델링_결과.csv')
+data.to_csv(output_file, index=False, encoding='utf-8-sig')
+
+# 한글 폰트 설정
+font_path = 'C:/Windows/Fonts/malgun.ttf'  # Windows 환경에서 Malgun Gothic 폰트 사용
+font_prop = fm.FontProperties(fname=font_path)
+
+# 토픽별 제목 개수 시각화
+topic_counts = data['주요_토픽'].value_counts().sort_index()
+plt.figure(figsize=(10, 6))
+plt.bar(topic_counts.index, topic_counts.values, color='skyblue')
+plt.xlabel('토픽 번호', fontproperties=font_prop)
+plt.ylabel('논문 수', fontproperties=font_prop)
+plt.title('토픽별 논문 수', fontproperties=font_prop)
+plt.xticks(topic_counts.index, [f'토픽 {i + 1}' for i in topic_counts.index], fontproperties=font_prop, rotation=45, ha='right')
+plt.yticks(fontproperties=font_prop)
+plt.show()

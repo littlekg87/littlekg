@@ -1,0 +1,66 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans
+import numpy as np
+
+# CSV 파일 로드
+data = pd.read_csv('D:/Kunha/PyProjects/Review of Korean History Thesis/Review projects/raw data/한국사연구휘보_20241015135359.csv')
+
+# 논문 제목들을 리스트로 수집
+titles = data['제목'].tolist()
+
+# 불용어 리스트 정의
+stopwords = ['및', '대한', '으로', '에', '의', '를', '과', '과의', '에의', '을', '에서', '하기', '고찰', '시기', '바탕으로', '역할', '중심으로', '연구', '통해', '의미', '성격', '초기', '분석', '배경과', '관한', '대해', '관련', '사이', '동안', '대비', '때문', '위해', '현상', '상황', '특성', '문제', '경우', '필요', '주제', '내용']  # 불용어 리스트 확대
+
+# TF-IDF 벡터화
+tfidf_vectorizer = TfidfVectorizer(stop_words=stopwords, max_features=1000)
+tfidf_matrix = tfidf_vectorizer.fit_transform(titles)
+
+# K-Means 클러스터링
+num_clusters = 5  # 분류할 주제의 수
+kmeans = KMeans(n_clusters=num_clusters, random_state=42)
+kmeans.fit(tfidf_matrix)
+
+# 각 제목에 할당된 클러스터 출력
+data['클러스터'] = kmeans.labels_
+print("각 제목에 할당된 클러스터:")
+print(data[['제목', '클러스터']])
+
+# 각 클러스터의 주요 키워드 추출
+def get_top_keywords(tfidf_matrix, kmeans, vectorizer, n_terms):
+    keywords = []
+    centroids = kmeans.cluster_centers_.argsort()[:, ::-1]
+    terms = vectorizer.get_feature_names_out()
+    for i in range(num_clusters):
+        top_keywords = [terms[ind] for ind in centroids[i, :n_terms]]
+        keywords.append([term for term in top_keywords if term not in stopwords])  # 불용어 제거 후 키워드 추가
+    return keywords
+
+# 클러스터별 주요 키워드 출력 및 이름 지정
+num_keywords = 10  # 각 클러스터의 주요 키워드 수
+cluster_keywords = get_top_keywords(tfidf_matrix, kmeans, tfidf_vectorizer, num_keywords)
+cluster_names = []
+for i, keywords in enumerate(cluster_keywords):
+    print(f"클러스터 {i}의 주요 주제: {', '.join(keywords)}")
+    cluster_name = f"주제 {i + 1} ({keywords[0]})" if keywords else f"주제 {i + 1} (기타)"
+    cluster_names.append(cluster_name)
+
+# 클러스터 이름 할당
+data['클러스터_이름'] = data['클러스터'].apply(lambda x: cluster_names[x])
+
+# 한글 폰트 설정
+font_path = 'C:/Windows/Fonts/malgun.ttf'  # Windows 환경에서 Malgun Gothic 폰트 사용
+font_prop = fm.FontProperties(fname=font_path)
+
+# 클러스터별 제목 개수 시각화
+cluster_counts = data['클러스터'].value_counts().sort_index()
+plt.figure(figsize=(10, 6))
+plt.bar(cluster_counts.index, cluster_counts.values, color='skyblue')
+plt.xlabel('클러스터 이름', fontproperties=font_prop)
+plt.ylabel('논문 수', fontproperties=font_prop)
+plt.title('클러스터별 논문 수', fontproperties=font_prop)
+plt.xticks(cluster_counts.index, [name for name in cluster_names], fontproperties=font_prop, rotation=45, ha='right')
+plt.yticks(fontproperties=font_prop)
+plt.show()
