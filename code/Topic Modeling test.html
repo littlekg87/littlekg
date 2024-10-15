@@ -1,0 +1,50 @@
+import pandas as pd
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.decomposition import LatentDirichletAllocation
+import nltk
+from nltk.corpus import stopwords
+import re
+
+# NLTK의 불용어(Stopwords) 다운로드
+nltk.download('stopwords')
+
+# CSV 파일 경로 (사용자 지정 경로)
+file_path = r'C:\Users\littl\PycharmProjects\Retrospects\raw data\한국사연구휘보_20241015135359.csv'
+
+# CSV 파일 읽기
+df = pd.read_csv(file_path, encoding='utf-8-sig')
+
+# 논문 제목 컬럼 추출 (컬럼명이 '제목'일 것으로 가정)
+titles = df['제목'].dropna().tolist()
+
+# 텍스트 전처리 함수 (한글, 한문 및 특수문자 처리)
+def preprocess_text(text):
+    # 모든 특수문자 제거
+    text = re.sub(r"[^가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9\s]", " ", text)  # 특수문자 제거
+    text = text.lower()  # 소문자 변환
+    words = text.split()  # 공백 기준으로 단어 분리
+    # 불용어로 한국어 및 영어 불용어 추가
+    stop_words = set(stopwords.words('korean')).union(set(stopwords.words('english')))
+    words = [word for word in words if word not in stop_words]  # 불용어 제거
+    return ' '.join(words)
+
+# 논문 제목 전처리
+processed_titles = [preprocess_text(title) for title in titles]
+
+# 단어 벡터화 (Bag-of-Words 모델)
+vectorizer = CountVectorizer(max_df=0.95, min_df=2, stop_words=None)
+X = vectorizer.fit_transform(processed_titles)
+
+# LDA 모델 적용 (토픽 개수는 5로 설정, 필요에 따라 조정 가능)
+lda = LatentDirichletAllocation(n_components=5, random_state=42)
+lda.fit(X)
+
+# 각 토픽의 주요 단어 출력
+def print_topics(model, feature_names, num_top_words):
+    for topic_idx, topic in enumerate(model.components_):
+        print(f"Topic #{topic_idx}:")
+        print(" ".join([feature_names[i] for i in topic.argsort()[:-num_top_words - 1:-1]]))
+
+# 주요 단어 10개씩 출력
+print("LDA Topic Modeling Results:")
+print_topics(lda, vectorizer.get_feature_names_out(), 10)
