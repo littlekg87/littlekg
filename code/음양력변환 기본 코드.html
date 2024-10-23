@@ -1,0 +1,52 @@
+import requests
+from xml.etree import ElementTree as ET
+
+# 서비스 키 설정
+decoding_key = '7G1tKWl5lxm8ELpYUwmg/2aFXXZcXGZl1mPeSza4EWSiwlHhkUugDqoG0KUF7/wu99K+Ny/7iutFgVwnmJ1iJg=='
+
+# API 기본 URL 설정
+base_url = 'http://apis.data.go.kr/B090041/openapi/service/LrsrCldInfoService/getSpcifyLunCalInfo'
+
+# 테스트용 음력 날짜 (예: 1770년 윤 5월 22일)
+lun_year = 1770
+lun_month = '{:02d}'.format(5)
+lun_day = 22
+leap_month = '윤'
+
+# API 요청 URL 설정
+params = {
+    'ServiceKey': decoding_key,  # 디코딩된 서비스 키 사용
+    'fromSolYear': lun_year,  # 검색 시작 연도
+    'toSolYear': lun_year,    # 검색 종료 연도
+    'lunMonth': lun_month,
+    'lunDay': lun_day,
+    'leapMonth': leap_month  # 윤달 여부 ('평' 또는 '윤')
+}
+
+response = requests.get(base_url, params=params)
+
+if response.status_code == 200:
+    # XML로 응답이 오므로 XML 파싱 필요
+    root = ET.fromstring(response.content)
+
+    # 응답 내용 전체 출력 (디버그용)
+    print("응답 내용:")
+    print(response.content.decode('utf-8'))
+
+    # 결과 코드 확인
+    result_code = root.find('.//resultCode')
+    if result_code is not None and result_code.text == '00':  # 정상 호출
+        # items 태그가 비어 있는지 확인
+        items = root.find('.//items')
+        if items is not None and len(items) > 0:
+            sol_year = root.find('.//solYear').text
+            sol_month = root.find('.//solMonth').text
+            sol_day = root.find('.//solDay').text
+            print(f"음력 날짜 {lun_year}-{lun_month}-{lun_day} (윤달 포함)은 양력 날짜 {sol_year}-{sol_month}-{sol_day} 입니다.")
+        else:
+            print("해당 음력 날짜에 대한 양력 변환 데이터가 없습니다.")
+    else:
+        err_msg = root.find('.//errMsg').text if root.find('.//errMsg') is not None else "알 수 없는 오류"
+        print(f"API 호출 오류: {err_msg}")
+else:
+    print(f"HTTP 오류 발생: {response.status_code}")
