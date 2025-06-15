@@ -1,0 +1,13 @@
+import pandas as pd
+
+# 파일 경로 설정
+txt_file_path = r'C:\Users\littl\PycharmProjects\Retrospects\raw data\한국사연구휘보_20241015135359.txt'
+
+# 데이터를 ^로 구분하여 읽어오기 (UTF-8 인코딩 사용)
+df = pd.read_csv(txt_file_path, delimiter='^', encoding='utf-8')
+
+# CSV 파일로 저장 (encoding='utf-8-sig' 사용)
+csv_file_path = r'C:\Users\littl\PycharmProjects\Retrospects\raw data\한국사연구휘보_20241015135359.csv'
+df.to_csv(csv_file_path, index=False, encoding='utf-8-sig')
+
+print(f"CSV 파일로 저장 완료: {csv_file_path}")

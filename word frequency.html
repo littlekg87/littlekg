@@ -1,0 +1,64 @@
+import pandas as pd
+from collections import Counter
+import re
+import matplotlib.pyplot as plt
+from wordcloud import WordCloud
+import matplotlib.font_manager as fm
+import squarify
+import seaborn as sns
+import numpy as np
+
+# CSV 파일 로드
+data = pd.read_csv('D:/Kunha/PyProjects/Review of Korean History Thesis/Review projects/raw data/한국사연구휘보_20241015135359.csv')
+
+# 논문 제목들을 리스트로 수집
+titles = data['제목'].tolist()
+
+# 모든 제목을 하나의 문자열로 결합
+titles_text = ' '.join(titles)
+
+# 제목에서 모든 단어를 추출하고 불용어 제거
+stopwords = ['및', '대한', '으로', '에', '의', '를', '과', '과의', '에의', '을', '에서', '하기', '고찰', '시기', '바탕으로', '역할', '중심으로', '연구', '통해', '의미', '성격', '초기', '분석', '배경과']  # 불용어 리스트
+all_words = re.findall(r'\b[\uAC00-\uD7A3]{2,}\b', titles_text)
+filtered_words = [word for word in all_words if word not in stopwords]
+
+# 단어의 빈도 계산
+word_counts = Counter(filtered_words)
+
+# 상위 20개의 키워드 추출
+top_20_keywords = word_counts.most_common(20)
+
+# 결과 출력
+print("상위 20개의 키워드:")
+for word, count in top_20_keywords:
+    print(f"{word}: {count}회")
+
+# 한글 폰트 설정
+font_path = 'C:/Windows/Fonts/malgun.ttf'  # Windows 환경에서 Malgun Gothic 폰트 사용
+font_prop = fm.FontProperties(fname=font_path)
+sns.set(font=font_path)
+
+# 히트맵 시각화 (상위 20개 키워드 빈도수 히트맵)
+keywords, counts = zip(*top_20_keywords)
+plt.figure(figsize=(12, 8))
+heatmap_data = np.array(counts).reshape(1, -1)
+sns.heatmap(heatmap_data, annot=True, fmt="d", cmap="Blues", xticklabels=keywords, yticklabels=['빈도수'], cbar=False)
+plt.title('상위 20개 키워드 빈도수 히트맵', fontproperties=font_prop)
+plt.xticks(fontproperties=font_prop, rotation=45, ha='right')
+plt.yticks(fontproperties=font_prop)
+plt.show()
+
+# Tree Map 시각화
+plt.figure(figsize=(12, 8))
+squarify.plot(sizes=counts, label=keywords, alpha=0.8, color=plt.cm.Set3.colors, text_kwargs={'fontsize':12, 'fontproperties':font_prop})
+plt.title('상위 20개 키워드 비율 (트리맵)', fontproperties=font_prop)
+plt.axis('off')
+plt.show()
+
+# Word Cloud 생성
+word_cloud = WordCloud(font_path=font_path, background_color='white', width=800, height=600).generate_from_frequencies(word_counts)
+plt.figure(figsize=(10, 8))
+plt.imshow(word_cloud, interpolation='bilinear')
+plt.axis('off')
+plt.title('논문 제목의 Word Cloud', fontproperties=font_prop)
+plt.show()
